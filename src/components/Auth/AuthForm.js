@@ -1,13 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useContext } from 'react';
+import { useHistory } from 'react-router-dom';
 
 import classes from './AuthForm.module.css';
+import AuthContext from '../../store/auth-context';
 
 const AuthForm = () => {
   const emailInputRef = useRef();
   const passwordInputRef = useRef();
-  
+  const history = useHistory();
+
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+
+  const ctx = useContext(AuthContext);
 
   const switchAuthModeHandler = () => {
     setIsLogin((prevState) => !prevState);
@@ -21,10 +26,16 @@ const AuthForm = () => {
 
     setIsLoading(true);
 
+    let url = '';
+
     if(isLogin) {
+      url = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyAUv5aAbfmj3W2blyYlJe1RFM7h9zp7LrI';
 
     } else {
-      fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyAUv5aAbfmj3W2blyYlJe1RFM7h9zp7LrI',
+      url = 'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyAUv5aAbfmj3W2blyYlJe1RFM7h9zp7LrI';
+    }
+
+    fetch(url,
       {
         method: 'POST',
         body: JSON.stringify({
@@ -35,12 +46,10 @@ const AuthForm = () => {
           headers: {
             'Content-Type': 'application/json'
           }
-      }).then(res => {
-        
+      }).then(res => {        
         setIsLoading(false);
-
         if(res.ok) {
-          //....
+          return res.json();
         }
         else {
           return res.json().then(data => {
@@ -52,11 +61,21 @@ const AuthForm = () => {
               errorMessage = data.error.message;
             }
             alert(errorMessage);
+            throw new Error(errorMessage);
           });
         }
+      })
+      .then((data) => {
+        //console.log(data);
+        const expiryTime = new Date(new Date().getTime() + (+data.expiresIn * 1000));
+
+        ctx.login(data.idToken, expiryTime.toISOString());
+        history.replace('/');
+      })
+      .catch((err) => {
+        alert(err.message);
       });
-    }
-  };
+    };
 
   return (
     <section className={classes.auth}>
